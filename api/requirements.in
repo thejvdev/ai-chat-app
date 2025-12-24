@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+argon2-cffi
+sqlalchemy
+psycopg2-binary
+pydantic[email]
