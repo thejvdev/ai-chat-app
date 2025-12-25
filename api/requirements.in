@@ -4,3 +4,4 @@ argon2-cffi
 sqlalchemy
 psycopg2-binary
 pydantic[email]
+pyjwt[crypto]
