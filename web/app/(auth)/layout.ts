@@ -4,19 +4,19 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth.store";
 
-export default function AppLayout({
+export default function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const router = useRouter();
   const status = useAuthStore((s) => s.status);
 
   useEffect(() => {
-    if (status === "guest") {
-      router.replace("/login");
+    if (status === "authed") {
+      router.replace("/");
     }
   }, [status, router]);
 
-  if (status !== "authed") return null;
+  if (status !== "guest") return null;
 
   return children;
 }

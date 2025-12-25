@@ -1,5 +1,4 @@
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Cookie
 from sqlalchemy.orm import Session
 from jwt import InvalidTokenError, ExpiredSignatureError
 
@@ -8,18 +7,20 @@ from core.jwt import decode_and_validate
 
 from models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    access_token: str = Cookie(default=None),
+    db: Session = Depends(get_db),
 ) -> User:
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     try:
-        payload = decode_and_validate(token, expected_type="access")
+        payload = decode_and_validate(access_token, expected_type="access")
     except ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
+        raise HTTPException(status_code=401, detail="Access token expired")
     except InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid access token")
 
     user_id = payload["sub"]
     user = db.query(User).filter(User.id == user_id).first()

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { User } from "@/types/user";
+import { isApiError, type ApiUser } from "@/types/api";
 import { GET, POST } from "@/lib/api";
 
 type AuthStatus = "authed" | "guest" | "checking";
@@ -9,45 +10,73 @@ interface AuthState {
   status: AuthStatus;
 
   init: () => Promise<void>;
-  refresh: () => Promise<boolean>;
+  refresh: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  status: "guest",
+export const useAuthStore = create<AuthState>((set) => {
+  const loadUser = async (): Promise<void> => {
+    const apiUser = (await GET("/auth/me")) as ApiUser | null;
+    if (apiUser) {
+      const { id, email, full_name } = apiUser;
+      set({ user: { id, email, name: full_name }, status: "authed" });
+    } else {
+      set({ user: null, status: "guest" });
+    }
+  };
 
-  init: async () => {
-    set({ status: "checking" });
-
+  const loadUserOrGuest = async (): Promise<void> => {
     try {
-      const user = (await GET("/auth/me")) as User;
-      set({ user, status: "authed" });
+      await loadUser();
     } catch {
       set({ user: null, status: "guest" });
     }
-  },
+  };
 
-  refresh: async () => {
+  const tryRefresh = async (): Promise<boolean> => {
     try {
       const data = await POST("/auth/refresh");
-      const ok = Boolean(data?.ok);
-
-      if (ok) {
-        await get().init();
-      }
-
-      return ok;
+      return Boolean(data?.ok);
     } catch {
       return false;
     }
-  },
+  };
 
-  logout: async () => {
-    try {
-      await POST("/auth/logout");
-    } finally {
-      set({ user: null, status: "guest" });
-    }
-  },
-}));
+  return {
+    user: null,
+    status: "checking",
+
+    init: async () => {
+      set({ status: "checking" });
+
+      try {
+        await loadUser();
+      } catch (err) {
+        if (!isApiError(err)) {
+          return set({ user: null, status: "guest" });
+        }
+        if (err.status === 401 && (await tryRefresh())) {
+          await loadUserOrGuest();
+          return;
+        }
+        set({ user: null, status: "guest" });
+      }
+    },
+
+    refresh: async () => {
+      const ok = await tryRefresh();
+      if (!ok) {
+        return set({ user: null, status: "guest" });
+      }
+      await loadUserOrGuest();
+    },
+
+    logout: async () => {
+      try {
+        await POST("/auth/logout");
+      } finally {
+        set({ user: null, status: "guest" });
+      }
+    },
+  };
+});

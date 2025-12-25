@@ -1,3 +1,5 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,12 +16,72 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
+import { useState } from "react";
 import Link from "next/link";
+import { POST } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth.store";
+import { isApiError } from "@/types/api";
+
+type LoginState = {
+  email: string;
+  password: string;
+};
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const [formData, setFormData] = useState<LoginState>({
+    email: "",
+    password: "",
+  });
+
+  const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const init = useAuthStore((s) => s.init);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+
+    const { email, password } = formData;
+
+    if (!email.trim()) {
+      return setError("Email is required");
+    }
+
+    if (password.length < 8) {
+      return setError("Password must be at least 8 characters");
+    }
+
+    const loginData = {
+      email: email.trim(),
+      password,
+    };
+
+    setIsLoading(true);
+
+    try {
+      await POST("/auth/login", loginData);
+      await init();
+    } catch (err) {
+      if (isApiError(err)) {
+        setError(err.data?.detail ?? "Login failed");
+      } else {
+        setError("Login failed");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -30,7 +92,13 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form>
+          {error && (
+            <Alert variant={"destructive"}>
+              <AlertTitle>Login failed</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <form onSubmit={handleSubmit}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -38,6 +106,9 @@ export function LoginForm({
                   id="email"
                   type="email"
                   placeholder="m@example.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  disabled={isLoading}
                   required
                 />
               </Field>
@@ -51,10 +122,19 @@ export function LoginForm({
                     Forgot your password?
                   </a>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  required
+                />
               </Field>
               <Field>
-                <Button type="submit">Login</Button>
+                <Button type="submit" disabled={isLoading}>
+                  Login
+                </Button>
                 <Button variant="outline" type="button" disabled>
                   Login with Google
                 </Button>
