@@ -5,8 +5,8 @@ import jwt
 from jwt import InvalidTokenError
 from .config import ALGORITHM, PRIVATE_KEY, PUBLIC_KEY
 
-ACCESS_TTL = timedelta(minutes=1)
-REFRESH_TTL = timedelta(minutes=5)
+ACCESS_TTL = timedelta(minutes=5)
+REFRESH_TTL = timedelta(days=14)
 
 
 def _now() -> datetime:

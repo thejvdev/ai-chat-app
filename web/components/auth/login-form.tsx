@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertCircleIcon } from "lucide-react";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -85,19 +86,13 @@ export function LoginForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
-        <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl">Login to your account</CardTitle>
           <CardDescription>
             Enter your email below to login to your account
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert variant={"destructive"}>
-              <AlertTitle>Login failed</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
           <form onSubmit={handleSubmit}>
             <FieldGroup>
               <Field>
@@ -131,13 +126,20 @@ export function LoginForm({
                   required
                 />
               </Field>
+              {error && (
+                <Alert variant={"destructive"}>
+                  <AlertCircleIcon />
+                  <AlertTitle>Something went wrong</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
               <Field>
                 <Button type="submit" disabled={isLoading}>
                   Login
                 </Button>
-                <Button variant="outline" type="button" disabled>
+                {/* <Button variant="outline" type="button" disabled={isLoading}>
                   Login with Google
-                </Button>
+                </Button> */}
                 <FieldDescription className="text-center">
                   Don&apos;t have an account?{" "}
                   <Link href="/signup">Sign up</Link>
