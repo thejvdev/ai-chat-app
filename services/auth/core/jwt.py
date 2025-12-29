@@ -3,7 +3,7 @@ import uuid
 
 import jwt
 from jwt import InvalidTokenError
-from .config import ALGORITHM, PRIVATE_KEY, PUBLIC_KEY
+from .config import JWT_ALG, JWT_PRIVATE_KEY, JWT_PUBLIC_KEY
 
 ACCESS_TTL = timedelta(minutes=5)
 REFRESH_TTL = timedelta(days=14)
@@ -22,7 +22,7 @@ def create_token(user_id: str, token_type: str, ttl: timedelta) -> str:
         "iat": now,
         "exp": now + ttl,
     }
-    return jwt.encode(payload, PRIVATE_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, JWT_PRIVATE_KEY, algorithm=JWT_ALG)
 
 
 def create_access_token(user_id: str) -> str:
@@ -35,7 +35,7 @@ def create_refresh_token(user_id: str) -> str:
 
 def decode_and_validate(token: str, expected_type: str) -> dict:
     payload = jwt.decode(
-        token, PUBLIC_KEY, algorithms=[ALGORITHM], options={"require": ["exp", "sub"]}
+        token, JWT_PUBLIC_KEY, algorithms=[JWT_ALG], options={"require": ["exp", "sub"]}
     )
 
     if payload.get("type") != expected_type:

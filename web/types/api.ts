@@ -14,3 +14,8 @@ export function isApiError(err: unknown): err is ApiError {
     typeof err === "object" && err !== null && "status" in err && "data" in err
   );
 }
+
+export type ApiChat = {
+  id: string;
+  title: string;
+};

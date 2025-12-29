@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { Command } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { NavMain } from "@/components/sidebar/nav-main";
 import { NavUser } from "@/components/sidebar/nav-user";
@@ -15,18 +17,19 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-import Link from "next/link";
-
-const data = {
-  navMain: [
-    {
-      title: "What is Docker?",
-      url: "#",
-    },
-  ],
-};
+import { useChatsStore } from "@/stores/chats.store";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const router = useRouter();
+  const chats = useChatsStore((s) => s.chats);
+
+  const handleOpen = React.useCallback(
+    (chatId: string) => {
+      router.push(`/chats/${chatId}`);
+    },
+    [router]
+  );
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -47,7 +50,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain chats={chats} onOpen={handleOpen} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
