@@ -1,11 +1,12 @@
-export type ChatItem = {
-  chatId: string;
+export type Role = "user" | "assistant";
+
+export type Chat = {
+  id: string;
   title: string;
 };
 
-export type MessageRole = "user" | "assistant";
-
-export type Message = {
-  role: MessageRole;
+export type ChatMessage = {
+  id: string;
+  role: Role;
   content: string;
 };

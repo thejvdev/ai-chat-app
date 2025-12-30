@@ -1,15 +1,12 @@
 import { create } from "zustand";
-import type { ChatItem } from "@/types/chat";
+import type { Chat } from "@/types/chat";
 import { GET, POST } from "@/lib/api";
-import { ApiChat } from "@/types/api";
+import type { ApiChatDto, ApiChatsListDto } from "@/types/api";
 
 interface ChatsState {
-  chats: ChatItem[];
-
+  chats: Chat[];
   loadChats: () => Promise<void>;
   createChat: (query: string) => Promise<string | null>;
-  removeChat: () => void;
-  clearChats: () => void;
 }
 
 export const useChatsStore = create<ChatsState>((set, get) => ({
@@ -17,27 +14,23 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
 
   loadChats: async () => {
     try {
-      const chats = (await GET("/chats")) as ApiChat[];
+      const data = (await GET("/chats")) as ApiChatsListDto;
       set({
-        chats: chats.map((c) => ({ chatId: c.id, title: c.title })),
+        chats: (data.chats ?? []).map((c) => ({ id: c.id, title: c.title })),
       });
-    } catch {
-      set({ chats: [] });
-    }
+    } catch {}
   },
 
   createChat: async (query: string) => {
-    const newChat = ((await POST("/chats", { query })) as ApiChat) || null;
+    const trimmed = query.trim();
+    if (!trimmed) return null;
 
-    if (!newChat) return null;
+    const newChat = (await POST("/chats", { query: trimmed })) as ApiChatDto;
+
     set({
-      chats: [{ chatId: newChat.id, title: newChat.title }, ...get().chats],
+      chats: [{ id: newChat.id, title: newChat.title }, ...get().chats],
     });
 
     return newChat.id;
   },
-
-  removeChat: () => {},
-
-  clearChats: () => {},
 }));

@@ -1,5 +1,5 @@
-import { ChatView } from "@/components/chat/chat-view";
+import { ThreadChatView } from "@/components/chat/thread-chat-view";
 
-export default function Chat() {
-  return <ChatView />;
+export default function Page() {
+  return <ThreadChatView />;
 }

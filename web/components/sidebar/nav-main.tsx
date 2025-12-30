@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Collapsible } from "@/components/ui/collapsible";
 import {
   SidebarGroup,
@@ -9,30 +10,20 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-import type { ChatItem } from "@/types/chat";
+import type { Chat } from "@/types/chat";
 
-export function NavMain({
-  chats,
-  onOpen,
-}: {
-  chats: ChatItem[];
-  onOpen: (chatId: string) => void;
-}) {
+export function NavMain({ chats }: { chats: Chat[] }) {
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Chats</SidebarGroupLabel>
       <SidebarMenu>
         {chats.map((c) => (
-          <Collapsible key={c.title} asChild>
+          <Collapsible key={c.id} asChild>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                onClick={() => onOpen(c.chatId)}
-                tooltip={c.title}
-              >
-                <a href={c.chatId}>
+              <SidebarMenuButton asChild tooltip={c.title}>
+                <Link href={`/chats/${c.id}`}>
                   <span>{c.title}</span>
-                </a>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </Collapsible>

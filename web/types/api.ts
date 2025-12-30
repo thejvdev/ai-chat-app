@@ -1,8 +1,21 @@
-export type ApiUser = {
+export type ApiUserDto = {
   id: string;
   full_name: string;
   email: string;
 };
+
+export type ApiChatDto = {
+  id: string;
+  title: string;
+};
+
+export type ApiMessageDto = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ApiChatsListDto = { chats: ApiChatDto[] };
+export type ApiMessagesListDto = { messages: ApiMessageDto[] };
 
 export type ApiError = {
   status: number;
@@ -14,8 +27,3 @@ export function isApiError(err: unknown): err is ApiError {
     typeof err === "object" && err !== null && "status" in err && "data" in err
   );
 }
-
-export type ApiChat = {
-  id: string;
-  title: string;
-};

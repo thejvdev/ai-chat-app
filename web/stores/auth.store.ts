@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { User } from "@/types/user";
-import { isApiError, type ApiUser } from "@/types/api";
+import { isApiError, type ApiUserDto } from "@/types/api";
 import { GET, POST } from "@/lib/api";
 
 type AuthStatus = "authed" | "guest" | "checking";
@@ -16,26 +16,22 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => {
   const loadUser = async (): Promise<void> => {
-    const apiUser = (await GET("/auth/me")) as ApiUser | null;
-    if (apiUser) {
-      const { id, email, full_name } = apiUser;
-      set({ user: { id, email, name: full_name }, status: "authed" });
-    } else {
-      set({ user: null, status: "guest" });
-    }
-  };
+    const apiUser = (await GET("/auth/me")) as ApiUserDto | null;
 
-  const loadUserOrGuest = async (): Promise<void> => {
-    try {
-      await loadUser();
-    } catch {
+    if (!apiUser) {
       set({ user: null, status: "guest" });
+      return;
     }
+
+    set({
+      user: { id: apiUser.id, email: apiUser.email, name: apiUser.full_name },
+      status: "authed",
+    });
   };
 
   const tryRefresh = async (): Promise<boolean> => {
     try {
-      const data = await POST("/auth/refresh");
+      const data = (await POST("/auth/refresh")) as { ok?: boolean } | null;
       return Boolean(data?.ok);
     } catch {
       return false;
@@ -52,13 +48,15 @@ export const useAuthStore = create<AuthState>((set) => {
       try {
         await loadUser();
       } catch (err) {
-        if (!isApiError(err)) {
-          return set({ user: null, status: "guest" });
-        }
-        if (err.status === 401 && (await tryRefresh())) {
-          await loadUserOrGuest();
+        if (isApiError(err) && err.status === 401 && (await tryRefresh())) {
+          try {
+            await loadUser();
+          } catch {
+            set({ user: null, status: "guest" });
+          }
           return;
         }
+
         set({ user: null, status: "guest" });
       }
     },
@@ -66,9 +64,15 @@ export const useAuthStore = create<AuthState>((set) => {
     refresh: async () => {
       const ok = await tryRefresh();
       if (!ok) {
-        return set({ user: null, status: "guest" });
+        set({ user: null, status: "guest" });
+        return;
       }
-      await loadUserOrGuest();
+
+      try {
+        await loadUser();
+      } catch {
+        set({ user: null, status: "guest" });
+      }
     },
 
     logout: async () => {

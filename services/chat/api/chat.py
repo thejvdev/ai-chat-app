@@ -23,7 +23,7 @@ def load_chats(
     chats = (
         db.query(Chat)
         .filter(Chat.owner_user_id == user_id)
-        .order_by(Chat.created_at.asc())
+        .order_by(Chat.created_at.desc())
         .all()
     )
     return ChatsResponse(chats=[{"id": c.id, "title": c.title} for c in chats])
@@ -99,19 +99,30 @@ async def send_message(
     db.commit()
     db.refresh(user_message)
 
+    messages = (
+        db.query(Message)
+        .filter(Message.chat_id == chat_id)
+        .order_by(Message.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    messages = list(reversed(messages))
+    history = [(m.role, m.content) for m in messages]
+
     async def event_stream():
         buff = StringIO()
 
         try:
-            async for token in ask(query):
+            async for token in ask(history):
+                if await request.is_disconnected():
+                    break
                 if not token:
                     continue
 
                 buff.write(token)
                 yield sse_data(token)
 
-                if await request.is_disconnected():
-                    break
         finally:
             answer_text = buff.getvalue().strip()
 

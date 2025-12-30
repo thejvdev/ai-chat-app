@@ -1,5 +1,5 @@
-import { ChatView } from "@/components/chat/chat-view";
+import { HomeChatView } from "@/components/chat/home-chat-view";
 
 export default function Home() {
-  return <ChatView />;
+  return <HomeChatView />;
 }

@@ -1,119 +1,165 @@
 import { create } from "zustand";
-import type { Message } from "@/types/chat";
-import { GET } from "@/lib/api";
+import type { ChatMessage } from "@/types/chat";
+import { GET, POST_STREAM } from "@/lib/api";
+import type { ApiMessagesListDto } from "@/types/api";
+import { isApiError } from "@/types/api";
+import { useAuthStore } from "@/stores/auth.store";
 
-interface ThreadState {
-  messages: Message[];
-  isStreaming: boolean;
+const uid = () =>
+  crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-  loadMessages: () => Promise<void>;
-  sendMessage: (query: string) => Promise<void>;
+let currentAbort: AbortController | null = null;
+let loadSeq = 0;
+
+type PendingFirstMessage = { chatId: string; query: string } | null;
+
+async function withRefreshRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (isApiError(e) && e.status === 401) {
+      await useAuthStore.getState().refresh();
+      return await fn();
+    }
+    throw e;
+  }
 }
 
-type MessagesState = {
-  messages: Message[];
-};
+async function* streamWithRefreshRetry<T>(
+  makeStream: () => AsyncGenerator<T>
+): AsyncGenerator<T> {
+  try {
+    yield* makeStream();
+  } catch (e) {
+    if (isApiError(e) && e.status === 401) {
+      await useAuthStore.getState().refresh();
+      yield* makeStream();
+      return;
+    }
+    throw e;
+  }
+}
 
-const getChatIdFromUrl = (): string | null => {
-  if (typeof window === "undefined") return null;
-  const match = window.location.pathname.match(/\/chats\/([^/]+)/);
-  return match?.[1] ?? null;
-};
+interface ThreadState {
+  activeChatId: string | null;
+  messages: ChatMessage[];
+  isStreaming: boolean;
 
-export const useThreadStore = create<ThreadState>((set) => ({
+  pending: PendingFirstMessage;
+  setPending: (chatId: string, query: string) => void;
+  consumePending: (chatId: string) => string | null;
+
+  clearThread: () => void;
+  cancelStream: () => void;
+
+  loadMessages: (chatId: string) => Promise<void>;
+  sendMessage: (chatId: string, query: string) => Promise<void>;
+}
+
+export const useThreadStore = create<ThreadState>((set, get) => ({
+  activeChatId: null,
   messages: [],
   isStreaming: false,
 
-  loadMessages: async () => {
-    const chatId = getChatIdFromUrl();
-    if (!chatId) return;
-
-    const data = (await GET(
-      `/chats/${chatId}/messages`
-    )) as MessagesState | null;
-    set({ messages: data?.messages ?? [] });
+  pending: null,
+  setPending: (chatId, query) => set({ pending: { chatId, query } }),
+  consumePending: (chatId) => {
+    const p = get().pending;
+    if (!p || p.chatId !== chatId) return null;
+    set({ pending: null });
+    return p.query;
   },
 
-  sendMessage: async (query: string) => {
-    query = query.trim();
-    if (query.length <= 1) return;
+  clearThread: () => {
+    get().cancelStream();
+    loadSeq += 1;
+    set({
+      activeChatId: null,
+      messages: [],
+      isStreaming: false,
+      pending: null,
+    });
+  },
 
-    const chatId = getChatIdFromUrl();
-    if (!chatId) return;
+  cancelStream: () => {
+    if (currentAbort) {
+      currentAbort.abort();
+      currentAbort = null;
+    }
+    set({ isStreaming: false });
+  },
 
-    set((state) => ({
-      messages: [
-        ...state.messages,
-        { role: "user", content: query },
-        { role: "assistant", content: "" },
-      ],
+  loadMessages: async (chatId: string) => {
+    if (get().isStreaming && get().activeChatId === chatId) return;
+
+    if (get().activeChatId && get().activeChatId !== chatId) {
+      get().cancelStream();
+    }
+
+    const seq = ++loadSeq;
+
+    const data = (await withRefreshRetry(() =>
+      GET(`/chats/${chatId}/messages`)
+    )) as ApiMessagesListDto | null;
+
+    if (seq !== loadSeq) return;
+
+    set({
+      activeChatId: chatId,
+      isStreaming: false,
+      messages: (data?.messages ?? []).map((m, i) => ({
+        id: `${chatId}:${i}`,
+        role: m.role,
+        content: m.content,
+      })),
+    });
+  },
+
+  sendMessage: async (chatId: string, query: string) => {
+    const text = query.trim();
+    if (!text) return;
+
+    get().cancelStream();
+
+    const userId = uid();
+    const assistantId = uid();
+
+    set((s) => ({
+      activeChatId: chatId,
       isStreaming: true,
+      messages: [
+        ...(s.activeChatId === chatId ? s.messages : []),
+        { id: userId, role: "user", content: text },
+        { id: assistantId, role: "assistant", content: "" },
+      ],
     }));
 
+    const abort = new AbortController();
+    currentAbort = abort;
+
     try {
-      const res = await fetch(`/chats/${chatId}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "text/event-stream",
-        },
-        credentials: "include",
-        body: JSON.stringify({ query }),
-      });
+      const make = () =>
+        POST_STREAM(
+          `/chats/${chatId}/messages`,
+          { query: text },
+          { signal: abort.signal }
+        );
 
-      if (!res.ok || !res.body) {
-        set({ isStreaming: false });
-        return;
+      for await (const evt of streamWithRefreshRetry(make)) {
+        if (evt.event === "done") break;
+        if (!evt.data) continue;
+
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === assistantId ? { ...m, content: m.content + evt.data } : m
+          ),
+        }));
       }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        let idx = buffer.indexOf("\n\n");
-        while (idx !== -1) {
-          const block = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 2);
-
-          if (block.split("\n").some((l) => l.trim() === "event: done")) {
-            set({ isStreaming: false });
-            return;
-          }
-
-          const data = block
-            .split("\n")
-            .filter((l) => l.startsWith("data:"))
-            .map((l) => (l.startsWith("data: ") ? l.slice(6) : l.slice(5)))
-            .join("\n");
-
-          if (data) {
-            set((state) => {
-              const messages = state.messages.slice();
-
-              for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].role === "assistant") {
-                  messages[i] = {
-                    ...messages[i],
-                    content: messages[i].content + data,
-                  };
-                  break;
-                }
-              }
-
-              return { messages };
-            });
-          }
-
-          idx = buffer.indexOf("\n\n");
-        }
-      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      throw e;
     } finally {
+      if (currentAbort === abort) currentAbort = null;
       set({ isStreaming: false });
     }
   },

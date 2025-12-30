@@ -23,7 +23,7 @@ async def create_title(query: str) -> str:
         return "New chat"
 
 
-async def ask(query: str) -> AsyncIterator[str]:
-    async for chunk in chat_llm.astream(query):
+async def ask(history: list) -> AsyncIterator[str]:
+    async for chunk in chat_llm.astream(history):
         if chunk.content:
             yield chunk.content
