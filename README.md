@@ -42,4 +42,4 @@ For LLM responses via Ollama, I use **Llama 3** (**8.03B parameters**).
 
 ## Author
 
-Created by [Denys Bondarchuk](https://github.com/thejvdev). Feel free to reach out or contribute!
+Created by [Denys Bondarchuk](https://github.com/thejvdev). Feel free to reach out or contribute to the project!
