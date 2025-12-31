@@ -1,41 +1,99 @@
 "use client";
 
-import * as React from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import type { ChatMessage } from "@/types/chat";
-import { MessageList } from "@/components/chat/message-list";
-import { Composer } from "@/components/chat/composer";
+import React, { useRef } from "react";
+import { ArrowUp, Square } from "lucide-react";
+
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { useAutosizeTextarea } from "@/hooks/use-autosize-textarea";
+
+interface ChatWindowProps {
+  isStreaming: boolean;
+  onSend: (query: string) => Promise<void>;
+  onCancel: () => void;
+  children: React.ReactNode;
+}
+
+const MIN_PX = 72;
+const MAX_PX = 160;
 
 export function ChatWindow({
-  messages,
+  isStreaming,
   onSend,
-}: {
-  messages: ChatMessage[];
-  onSend: (query: string) => Promise<void>;
-}) {
+  onCancel,
+  children,
+}: ChatWindowProps) {
   const [value, setValue] = React.useState("");
+  const ref = useRef<HTMLTextAreaElement | null>(null);
 
-  const handleSend = async () => {
+  useAutosizeTextarea(ref, value, { minPx: MIN_PX, maxPx: MAX_PX });
+
+  const sendMessage = async () => {
+    const text = value.trim();
+    if (!text || isStreaming) return;
+
     setValue("");
-    await onSend(value);
+    try {
+      await onSend(text);
+    } catch (error) {
+      setValue(text);
+      throw error;
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    void sendMessage();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void sendMessage();
+    }
   };
 
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden">
-      {messages.length <= 0 ? (
-        <span className="flex-1 flex justify-center items-center font-semibold text-xl">
-          Type something to start
-        </span>
-      ) : (
-        <ScrollArea className="flex-1 min-h-0 w-full">
-          <div className="mx-auto w-full max-w-[768px] px-4 min-h-full flex">
-            <MessageList messages={messages} />
-          </div>
-        </ScrollArea>
-      )}
+      {children}
 
       <div className="mx-auto w-full max-w-[768px] px-4">
-        <Composer value={value} onChange={setValue} onSend={handleSend} />
+        <form onSubmit={handleSubmit} className="shrink-0 py-4">
+          <div className="relative">
+            <Textarea
+              ref={ref}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message..."
+              className="rounded-xl p-3 pr-12 resize-none !text-base"
+              style={{ minHeight: MIN_PX, maxHeight: MAX_PX }}
+            />
+
+            {!isStreaming ? (
+              <Button
+                type="submit"
+                size="icon"
+                className="absolute right-3 bottom-3 h-8 w-8 rounded-full"
+                aria-label="Send message"
+                title="Send"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="icon"
+                className="absolute right-3 bottom-3 h-8 w-8 rounded-full"
+                aria-label="Stop generating"
+                onClick={onCancel}
+                title="Stop"
+              >
+                <Square className="h-4 w-4" fill="currentColor" />
+              </Button>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );

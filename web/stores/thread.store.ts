@@ -1,8 +1,7 @@
 import { create } from "zustand";
 import type { ChatMessage } from "@/types/chat";
+import { isApiError, type ApiMessagesListDto } from "@/types/api";
 import { GET, POST_STREAM } from "@/lib/api";
-import type { ApiMessagesListDto } from "@/types/api";
-import { isApiError } from "@/types/api";
 import { useAuthStore } from "@/stores/auth.store";
 
 const uid = () =>
@@ -44,8 +43,8 @@ interface ThreadState {
   activeChatId: string | null;
   messages: ChatMessage[];
   isStreaming: boolean;
-
   pending: PendingFirstMessage;
+
   setPending: (chatId: string, query: string) => void;
   consumePending: (chatId: string) => string | null;
 
@@ -60,9 +59,10 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   activeChatId: null,
   messages: [],
   isStreaming: false,
-
   pending: null,
+
   setPending: (chatId, query) => set({ pending: { chatId, query } }),
+
   consumePending: (chatId) => {
     const p = get().pending;
     if (!p || p.chatId !== chatId) return null;

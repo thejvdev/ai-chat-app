@@ -3,6 +3,7 @@ from io import StringIO
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from services.llm import create_title, ask
@@ -69,6 +70,37 @@ def load_chat(
     return MessagesResponse(
         messages=[{"role": m.role, "content": m.content} for m in messages]
     )
+
+
+@router.delete("/{chat_id}", status_code=204)
+def delete_chat(
+    chat_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> None:
+    chat = db.query(Chat).filter(Chat.id == chat_id).first()
+
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    if chat.owner_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    db.execute(delete(Chat).where(Chat.id == chat_id))
+    db.commit()
+
+    return
+
+
+@router.delete("", status_code=204)
+def delete_all_chats(
+    user_id: UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> None:
+    db.execute(delete(Chat).where(Chat.owner_user_id == user_id))
+    db.commit()
+
+    return
 
 
 def sse_data(chunk: str) -> str:

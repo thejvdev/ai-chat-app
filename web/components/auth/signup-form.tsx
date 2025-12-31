@@ -25,12 +25,12 @@ import { POST } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { isApiError } from "@/types/api";
 
-type SignupState = {
+interface SignupState {
   name: string;
   email: string;
   password: string;
   confirmPassword: string;
-};
+}
 
 export function SignupForm({
   className,

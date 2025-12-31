@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 import { ChatWindow } from "@/components/chat/chat-window";
@@ -13,11 +13,13 @@ export function HomeChatView() {
   const createChat = useChatsStore((s) => s.createChat);
   const setPending = useThreadStore((s) => s.setPending);
   const clearThread = useThreadStore((s) => s.clearThread);
+  const cancelStream = useThreadStore((s) => s.cancelStream);
 
   useEffect(() => {
     clearThread();
   }, [clearThread]);
 
+  // FIXME: Rewrite this logic - creation after streaming
   const handleSend = useCallback(
     async (query: string) => {
       const text = query.trim();
@@ -32,5 +34,11 @@ export function HomeChatView() {
     [createChat, setPending, router]
   );
 
-  return <ChatWindow messages={[]} onSend={handleSend} />;
+  return (
+    <ChatWindow isStreaming={false} onCancel={cancelStream} onSend={handleSend}>
+      <span className="flex-1 flex justify-center items-center font-semibold text-2xl">
+        How can I help you today?
+      </span>
+    </ChatWindow>
+  );
 }

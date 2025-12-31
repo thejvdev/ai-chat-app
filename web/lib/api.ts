@@ -62,6 +62,21 @@ export async function POST<
   return data as TResponse;
 }
 
+export async function DELETE<TResponse = null>(
+  path: string
+): Promise<TResponse> {
+  const res = await fetch(toUrl(path), {
+    method: "DELETE",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!res.ok) await throwApiError(res);
+
+  const data = await parseOkBody(res);
+  return data as TResponse;
+}
+
 export type SseEvent = { event: string; data: string };
 
 async function* parseSSE(

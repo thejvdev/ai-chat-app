@@ -25,10 +25,10 @@ import { POST } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { isApiError } from "@/types/api";
 
-type LoginState = {
+interface LoginState {
   email: string;
   password: string;
-};
+}
 
 export function LoginForm({
   className,
