@@ -4,6 +4,10 @@ export type ApiUserDto = {
   email: string;
 };
 
+export type ApiChatTitleDto = {
+  title: string;
+};
+
 export type ApiChatDto = {
   id: string;
   title: string;
@@ -27,3 +31,8 @@ export function isApiError(err: unknown): err is ApiError {
     typeof err === "object" && err !== null && "status" in err && "data" in err
   );
 }
+
+export type SseEvent = {
+  event: string;
+  data: string;
+};

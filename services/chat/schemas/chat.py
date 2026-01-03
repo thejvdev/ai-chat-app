@@ -12,8 +12,9 @@ class ChatsResponse(BaseModel):
     chats: List[ChatItem]
 
 
-class QueryRequest(BaseModel):
+class StreamRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
+    chat_id: UUID | None = None
     query: str = Field(..., min_length=1, max_length=4000)
 
 
@@ -24,3 +25,12 @@ class Message(BaseModel):
 
 class MessagesResponse(BaseModel):
     messages: List[Message]
+
+
+class ChatTitleRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    query: str = Field(..., min_length=1, max_length=4000)
+
+
+class ChatTitleResponse(BaseModel):
+    title: str

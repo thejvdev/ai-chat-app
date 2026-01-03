@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { MessageList } from "@/components/chat/message-list";
 import { ChatWindow } from "@/components/chat/chat-window";
+
 import { useThreadStore } from "@/stores/thread.store";
 
 export function ThreadChatView() {
@@ -20,19 +21,12 @@ export function ThreadChatView() {
   const loadMessages = useThreadStore((s) => s.loadMessages);
   const sendMessage = useThreadStore((s) => s.sendMessage);
   const cancelStream = useThreadStore((s) => s.cancelStream);
-  const consumePending = useThreadStore((s) => s.consumePending);
 
   useEffect(() => {
-    const first = consumePending(chatId);
-    if (first) {
-      void sendMessage(chatId, first);
-      return;
-    }
+    if (activeChatId === chatId) return;
 
-    if (activeChatId !== chatId) {
-      loadMessages(chatId).catch(() => {});
-    }
-  }, [chatId, activeChatId, consumePending, sendMessage, loadMessages]);
+    loadMessages(chatId).catch(() => {});
+  }, [chatId, activeChatId, loadMessages]);
 
   const handleSend = useCallback(
     async (query: string) => {

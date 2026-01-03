@@ -93,8 +93,16 @@ export function NavChats({ chats, onRemove }: NavChatsProps) {
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem onSelect={() => handleDelete(c.id)}>
-                  <Trash2 className="text-muted-foreground" />
+                <DropdownMenuItem
+                  onSelect={() => handleDelete(c.id)}
+                  className="
+                    text-destructive
+                    focus:text-destructive
+                    focus:bg-destructive/10
+                    hover:bg-destructive/10
+                  "
+                >
+                  <Trash2 className="text-destructive" />
                   <span>Delete</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>

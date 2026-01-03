@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-
 import { ChatWindow } from "@/components/chat/chat-window";
 import { useChatsStore } from "@/stores/chats.store";
 import { useThreadStore } from "@/stores/thread.store";
@@ -10,32 +9,44 @@ import { useThreadStore } from "@/stores/thread.store";
 export function HomeChatView() {
   const router = useRouter();
 
-  const createChat = useChatsStore((s) => s.createChat);
-  const setPending = useThreadStore((s) => s.setPending);
+  const createTitle = useChatsStore((s) => s.createTitle);
+
+  const activeChatId = useThreadStore((s) => s.activeChatId);
+  const isStreaming = useThreadStore((s) => s.isStreaming);
   const clearThread = useThreadStore((s) => s.clearThread);
   const cancelStream = useThreadStore((s) => s.cancelStream);
+  const sendMessage = useThreadStore((s) => s.sendMessage);
+
+  const startedHere = useRef(false);
 
   useEffect(() => {
+    startedHere.current = false;
     clearThread();
   }, [clearThread]);
 
-  // FIXME: Rewrite this logic - creation after streaming
+  useEffect(() => {
+    if (!startedHere.current) return;
+    if (!isStreaming) return;
+    if (!activeChatId) return;
+
+    router.replace(`/chats/${activeChatId}`);
+  }, [activeChatId, isStreaming, router]);
+
   const handleSend = useCallback(
     async (query: string) => {
-      const text = query.trim();
-      if (!text) return;
-
-      const id = await createChat(text);
-      if (!id) return;
-
-      setPending(id, text);
-      router.replace(`/chats/${id}`);
+      startedHere.current = true;
+      const chatId = await sendMessage(null, query);
+      if (chatId) void createTitle(chatId, query);
     },
-    [createChat, setPending, router]
+    [sendMessage, createTitle]
   );
 
   return (
-    <ChatWindow isStreaming={false} onCancel={cancelStream} onSend={handleSend}>
+    <ChatWindow
+      isStreaming={isStreaming}
+      onCancel={cancelStream}
+      onSend={handleSend}
+    >
       <span className="flex-1 flex justify-center items-center font-semibold text-2xl">
         How can I help you today?
       </span>

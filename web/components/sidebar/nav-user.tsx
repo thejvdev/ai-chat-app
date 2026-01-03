@@ -84,8 +84,16 @@ export function NavUser({
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuItem onSelect={onDeleteAllChats}>
-              <Trash2 className="text-muted-foreground" />
+            <DropdownMenuItem
+              onSelect={onDeleteAllChats}
+              className="
+                text-destructive
+                focus:text-destructive
+                focus:bg-destructive/10
+                hover:bg-destructive/10
+              "
+            >
+              <Trash2 className="text-destructive" />
               Delete all chats
             </DropdownMenuItem>
 

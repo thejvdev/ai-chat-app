@@ -18,10 +18,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
+import type { User } from "@/types/user";
+
+import { removeChat, clearChats } from "@/lib/chat-actions";
 import { useChatsStore } from "@/stores/chats.store";
 import { useThreadStore } from "@/stores/thread.store";
 import { useAuthStore } from "@/stores/auth.store";
-import type { User } from "@/types/user";
 
 function getAvatarFallback(name: string) {
   return name
@@ -38,9 +40,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
 
   const chats = useChatsStore((s) => s.chats);
-  const removeChat = useChatsStore((s) => s.removeChat);
-  const clearChats = useChatsStore((s) => s.clearChats);
-
   const activeChatId = useThreadStore((s) => s.activeChatId);
 
   const user = useAuthStore((s) => s.user) as User | null;
@@ -61,13 +60,13 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         router.replace("/");
       }
     },
-    [removeChat, activeChatId, pathname, router]
+    [activeChatId, pathname, router]
   );
 
   const handleClearChats = React.useCallback(async () => {
     await clearChats();
     router.replace("/");
-  }, [clearChats, router]);
+  }, [router]);
 
   const handleLogout = React.useCallback(() => {
     void logout();
@@ -85,7 +84,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">AI Chat</span>
-                  <span className="truncate text-xs">Localhost</span>
+                  <span className="truncate text-xs">Synapse</span>
                 </div>
               </Link>
             </SidebarMenuButton>

@@ -78,7 +78,7 @@ export function ChatWindow({
                 aria-label="Send message"
                 title="Send"
               >
-                <ArrowUp className="h-4 w-4" />
+                <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
               </Button>
             ) : (
               <Button

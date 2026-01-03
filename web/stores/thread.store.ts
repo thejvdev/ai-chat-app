@@ -1,84 +1,40 @@
 import { create } from "zustand";
+
+import type { ApiMessagesListDto } from "@/types/api";
 import type { ChatMessage } from "@/types/chat";
-import { isApiError, type ApiMessagesListDto } from "@/types/api";
-import { GET, POST_STREAM } from "@/lib/api";
-import { useAuthStore } from "@/stores/auth.store";
+import { GET } from "@/lib/api";
+import { POST_SSE } from "@/lib/sse";
+import { withRefreshRetry, sseWithRefreshRetry } from "@/lib/retry";
+
+import { useChatsStore } from "@/stores/chats.store";
 
 const uid = () =>
-  crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
 
 let currentAbort: AbortController | null = null;
-let loadSeq = 0;
-
-type PendingFirstMessage = { chatId: string; query: string } | null;
-
-async function withRefreshRetry<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (e) {
-    if (isApiError(e) && e.status === 401) {
-      await useAuthStore.getState().refresh();
-      return await fn();
-    }
-    throw e;
-  }
-}
-
-async function* streamWithRefreshRetry<T>(
-  makeStream: () => AsyncGenerator<T>
-): AsyncGenerator<T> {
-  try {
-    yield* makeStream();
-  } catch (e) {
-    if (isApiError(e) && e.status === 401) {
-      await useAuthStore.getState().refresh();
-      yield* makeStream();
-      return;
-    }
-    throw e;
-  }
-}
 
 interface ThreadState {
   activeChatId: string | null;
   messages: ChatMessage[];
   isStreaming: boolean;
-  pending: PendingFirstMessage;
-
-  setPending: (chatId: string, query: string) => void;
-  consumePending: (chatId: string) => string | null;
 
   clearThread: () => void;
   cancelStream: () => void;
 
   loadMessages: (chatId: string) => Promise<void>;
-  sendMessage: (chatId: string, query: string) => Promise<void>;
+  sendMessage: (chatId: string | null, query: string) => Promise<string | null>;
 }
 
 export const useThreadStore = create<ThreadState>((set, get) => ({
   activeChatId: null,
   messages: [],
   isStreaming: false,
-  pending: null,
-
-  setPending: (chatId, query) => set({ pending: { chatId, query } }),
-
-  consumePending: (chatId) => {
-    const p = get().pending;
-    if (!p || p.chatId !== chatId) return null;
-    set({ pending: null });
-    return p.query;
-  },
 
   clearThread: () => {
     get().cancelStream();
-    loadSeq += 1;
-    set({
-      activeChatId: null,
-      messages: [],
-      isStreaming: false,
-      pending: null,
-    });
+    set({ activeChatId: null, messages: [], isStreaming: false });
   },
 
   cancelStream: () => {
@@ -96,13 +52,9 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
       get().cancelStream();
     }
 
-    const seq = ++loadSeq;
-
     const data = (await withRefreshRetry(() =>
       GET(`/chats/${chatId}/messages`)
     )) as ApiMessagesListDto | null;
-
-    if (seq !== loadSeq) return;
 
     set({
       activeChatId: chatId,
@@ -115,9 +67,12 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
     });
   },
 
-  sendMessage: async (chatId: string, query: string) => {
+  sendMessage: async (
+    chatId: string | null,
+    query: string
+  ): Promise<string | null> => {
     const text = query.trim();
-    if (!text) return;
+    if (!text) return null;
 
     get().cancelStream();
 
@@ -139,28 +94,51 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
 
     try {
       const make = () =>
-        POST_STREAM(
-          `/chats/${chatId}/messages`,
-          { query: text },
-          { signal: abort.signal }
+        POST_SSE(
+          "/chats/stream",
+          { query: text, chat_id: chatId },
+          abort.signal
         );
 
-      for await (const evt of streamWithRefreshRetry(make)) {
-        if (evt.event === "done") break;
-        if (!evt.data) continue;
+      for await (const event of sseWithRefreshRetry(make)) {
+        if (event.event === "meta") {
+          const meta = JSON.parse(event.data) as { chat_id: string };
+          chatId = meta.chat_id;
 
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === assistantId ? { ...m, content: m.content + evt.data } : m
-          ),
-        }));
+          useChatsStore.getState().addChat(chatId);
+          set({ activeChatId: chatId });
+          continue;
+        }
+
+        if (event.event === "stream") {
+          const payload = JSON.parse(event.data) as { text: string };
+          const chunk = payload.text ?? "";
+          if (!chunk) continue;
+
+          set((s) => ({
+            messages: s.messages.map((m) =>
+              m.id === assistantId ? { ...m, content: m.content + chunk } : m
+            ),
+          }));
+          continue;
+        }
+
+        if (event.event === "error") {
+          break;
+        }
+
+        if (event.event === "done") break;
       }
     } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (e instanceof DOMException && e.name === "AbortError") return chatId;
       throw e;
     } finally {
-      if (currentAbort === abort) currentAbort = null;
-      set({ isStreaming: false });
+      if (currentAbort === abort) {
+        currentAbort = null;
+        set({ isStreaming: false });
+      }
     }
+
+    return chatId;
   },
 }));
