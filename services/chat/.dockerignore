@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Git
+.gitignore
+
+# System
+.DS_Store
