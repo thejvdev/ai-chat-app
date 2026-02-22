@@ -1,0 +1,135 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U $${POSTGRES_USER} -d chatdb -c 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+  
+  auth:
+    build: ./services/auth
+    image: auth-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8000"
+    env_file:
+      - ./services/auth/.env
+    volumes:
+      - ./services/auth:/app
+      - /app/__pycache__
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  
+  tor:
+    image: dperson/torproxy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "9050"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    expose:
+      - "9050"
+  
+  searxng:
+    image: searxng/searxng
+    restart: unless-stopped
+    depends_on:
+      tor:
+        condition: service_healthy
+    expose:
+      - "8080"
+    environment:
+      SEARXNG_SECRET_KEY: ${SEARXNG_SECRET_KEY}
+    volumes:
+      - searxng_data:/var/cache/searxng/
+      - ./searxng/settings.yml:/etc/searxng/settings.yml
+  
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    expose:
+      - "6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+  
+  unstructured-api:
+    image: downloads.unstructured.io/unstructured-io/unstructured-api:0.0.79
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - UNSTRUCTURED_PARALLEL_MODE=true
+      - UNSTRUCTURED_NUM_WORKERS=2
+  
+  llm:
+    build: ./services/llm
+    image: llm-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      searxng:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      unstructured-api:
+        condition: service_started
+    expose:
+      - "8000"
+    env_file:
+      - ./services/llm/.env
+    volumes:
+      - ./services/llm:/app
+      - /app/__pycache__
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  
+  chat:
+    build: ./services/chat
+    image: chat-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      llm:
+        condition: service_started
+    expose:
+      - "8000"
+    env_file:
+      - ./services/chat/.env
+    volumes:
+      - ./services/chat:/app
+      - /app/__pycache__
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - chat
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+
+volumes:
+  pg_data:
+  searxng_data:
+  qdrant_data:
