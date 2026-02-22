@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pyjwt[crypto]
+loguru
+ollama
+httpx
+trafilatura
+unstructured-client
+fastembed
+numpy
+qdrant-client

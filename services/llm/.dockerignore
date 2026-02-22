@@ -1,0 +1,20 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Git
+.gitignore
+
+# Log files
+logs/
+
+# System
+.DS_Store
