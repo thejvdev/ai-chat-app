@@ -3,6 +3,7 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     PointStruct,
     ScoredPoint,
+    FilterSelector,
     Filter,
     FieldCondition,
     MatchValue,
@@ -29,17 +30,19 @@ async def delete_chat_points(
 ):
     await client.delete(
         collection_name=COLLECTION_NAME,
-        filter=Filter(
-            must=[
-                FieldCondition(
-                    key="chat_id",
-                    match=MatchValue(value=str(chat_id)),
-                ),
-                FieldCondition(
-                    key="user_id",
-                    match=MatchValue(value=str(user_id)),
-                ),
-            ]
+        points_selector=FilterSelector(
+            filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="chat_id",
+                        match=MatchValue(value=str(chat_id)),
+                    ),
+                    FieldCondition(
+                        key="user_id",
+                        match=MatchValue(value=str(user_id)),
+                    ),
+                ]
+            )
         ),
         wait=True,
     )
@@ -48,13 +51,15 @@ async def delete_chat_points(
 async def delete_user_points(client: AsyncQdrantClient, user_id: uuid.UUID | str):
     await client.delete(
         collection_name=COLLECTION_NAME,
-        filter=Filter(
-            must=[
-                FieldCondition(
-                    key="user_id",
-                    match=MatchValue(value=str(user_id)),
-                )
-            ]
+        points_selector=FilterSelector(
+            filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="user_id",
+                        match=MatchValue(value=str(user_id)),
+                    )
+                ]
+            )
         ),
         wait=True,
     )

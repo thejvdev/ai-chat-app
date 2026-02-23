@@ -1,6 +1,7 @@
 import uuid
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from typing import AsyncIterator
 
 from httpx import AsyncClient as HttpxClient
 from unstructured_client import UnstructuredClient
@@ -28,8 +29,10 @@ async def deep_research(
     web_queries: list[str],
     web_categories: list[str],
     with_log: bool = False,
-) -> list[dict]:
+) -> AsyncIterator[dict]:
     embedding_model, reranker_model, executor = models
+
+    yield {"type": "meta", "message": "Searching"}
 
     records = await web_parse(
         client=http_client,
@@ -77,12 +80,18 @@ async def deep_research(
 
     await upsert_points(client=qdrant_client, data=flat_data)
 
+    yield {"type": "meta", "message": "Processing"}
+
     query_vector = (
         await embed_texts(model=embedding_model, executor=executor, texts=[query])
     )[0]
 
     points = await search_similar(
-        client=qdrant_client, query_vector=query_vector, top_k=20
+        client=qdrant_client,
+        chat_id=chat_id,
+        user_id=user_id,
+        query_vector=query_vector,
+        top_k=20,
     )
 
     results = await rerank_chunks(
@@ -95,4 +104,4 @@ async def deep_research(
         save_to_json("3_points", {"points": points})
         save_to_json("4_results", {"results": results})
 
-    return results
+    yield {"type": "complete", "results": results}

@@ -53,11 +53,11 @@ async def lifespan(app: FastAPI):
         server_url=UNSTRUCTURED_API_URL, api_key_auth=""
     )
 
-    app.state.qdrant_client = AsyncQdrantClient(url=QDRANT_URL)
-
     app.state.embedding_model = TextEmbedding(model_name=EMBEDDING_MODEL)
     app.state.reranker_model = TextCrossEncoder(model_name=RERANKER_MODEL)
     app.state.executor = ThreadPoolExecutor(max_workers=2)
+
+    app.state.qdrant_client = AsyncQdrantClient(url=QDRANT_URL)
 
     try:
         from qdrant_client.models import Distance, VectorParams
@@ -67,7 +67,6 @@ async def lifespan(app: FastAPI):
             await app.state.qdrant_client.create_collection(
                 collection_name=COLLECTION_NAME,
                 vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
-                wait=True,
             )
             logger.info(f"Created new collection: {COLLECTION_NAME}")
 

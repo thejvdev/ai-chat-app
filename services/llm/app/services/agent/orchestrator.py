@@ -1,4 +1,5 @@
 import uuid
+from typing import AsyncIterator
 
 from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
@@ -35,7 +36,7 @@ async def run_agent(
     payload: LLMStream,
     user_id: uuid.UUID,
     with_log: bool = False,
-):
+) -> AsyncIterator[dict]:
     model = payload.model
     temperature = payload.temperature
     messages = payload.messages
@@ -53,7 +54,7 @@ async def run_agent(
             args = tool_call.get("arguments", {})
 
             try:
-                documents = await deep_research(
+                async for update in deep_research(
                     http_client=http_client,
                     unstructured_client=unstructured_client,
                     qdrant_client=qdrant_client,
@@ -64,10 +65,12 @@ async def run_agent(
                     web_queries=args.get("web_queries"),
                     web_categories=args.get("web_categories"),
                     with_log=with_log,
-                )
-
-                context = format_rag_context(documents=documents)
-                logger.info(f"Provided context:\n{context}")
+                ):
+                    if update["type"] == "complete":
+                        context = format_rag_context(documents=update["results"])
+                        logger.info(f"Provided context:\n{context}")
+                    else:
+                        yield update
 
             except Exception as e:
                 logger.error(f"Deep research execution failed: {e}")
