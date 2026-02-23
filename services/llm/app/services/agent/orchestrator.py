@@ -1,3 +1,5 @@
+import uuid
+
 from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
 
@@ -27,11 +29,13 @@ async def run_agent(
     qdrant_client: AsyncQdrantClient,
     models: tuple[TextEmbedding, TextCrossEncoder, ThreadPoolExecutor],
     payload: LLMStream,
+    user_id: uuid.UUID,
     with_log: bool = False,
 ):
     model = payload.model
     temperature = payload.temperature
     messages = payload.messages
+    chat_id = payload.chat_id
 
     tool_call = await predict_action(
         client=ollama_client, model=model, messages=messages, tools=TOOLS
@@ -49,6 +53,8 @@ async def run_agent(
                 unstructured_client=unstructured_client,
                 qdrant_client=qdrant_client,
                 models=models,
+                chat_id=chat_id,
+                user_id=user_id,
                 query=args.get("query"),
                 web_queries=args.get("web_queries"),
                 web_categories=args.get("web_categories"),

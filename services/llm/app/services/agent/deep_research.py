@@ -1,3 +1,4 @@
+import uuid
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
@@ -21,6 +22,8 @@ async def deep_research(
     unstructured_client: UnstructuredClient,
     qdrant_client: AsyncQdrantClient,
     models: tuple[TextEmbedding, TextCrossEncoder, ThreadPoolExecutor],
+    chat_id: uuid.UUID,
+    user_id: uuid.UUID,
     query: str,
     web_queries: list[str],
     web_categories: list[str],
@@ -55,7 +58,14 @@ async def deep_research(
         for chunk in chunks:
             flat_chunks.append(chunk)
             flat_data.append(
-                {"payload": {"content": chunk, "metadata": record["metadata"]}}
+                {
+                    "payload": {
+                        "chat_id": str(chat_id),
+                        "user_id": str(user_id),
+                        "content": chunk,
+                        "metadata": record["metadata"],
+                    }
+                }
             )
 
     vectors = await embed_texts(

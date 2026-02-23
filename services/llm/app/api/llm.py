@@ -1,3 +1,4 @@
+import uuid
 import json
 from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
@@ -33,12 +34,12 @@ def sse(data: dict):
 
 @router.post(
     "/stream",
-    dependencies=[Depends(get_current_user_id)],
     status_code=200,
 )
 async def stream(
     payload: LLMStream,
     request: Request,
+    user_id: uuid.UUID = Depends(get_current_user_id),
     ollama_client: OllamaClient = Depends(get_ollama_client),
     http_client: HttpxClient = Depends(get_http_client),
     unstructured_client: UnstructuredClient = Depends(get_unstructured_client),
@@ -55,6 +56,7 @@ async def stream(
             qdrant_client=qdrant_client,
             models=models,
             payload=payload,
+            user_id=user_id,
             with_log=True,
         ):
             if await request.is_disconnected():
