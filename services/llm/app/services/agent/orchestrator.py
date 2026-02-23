@@ -16,10 +16,14 @@ from app.services.llm.formatters import format_rag_context
 from app.services.agent.deep_research import deep_research
 
 from app.schemas.llm import LLMStream
-from app.schemas.agent import DeepResearchSchema
+from app.schemas.tools.direct_answer import DirectAnswerSchema
+from app.schemas.tools.deep_research import DeepResearchSchema
 
 
-TOOLS = [get_tool_definition("deep_research", DeepResearchSchema)]
+TOOLS = [
+    get_tool_definition("direct_answer", DirectAnswerSchema),
+    get_tool_definition("deep_research", DeepResearchSchema),
+]
 
 
 async def run_agent(
@@ -44,48 +48,46 @@ async def run_agent(
 
     context = ""
 
-    if tool_call and tool_call.get("name") == "deep_research":
-        args = tool_call.get("arguments", {})
+    if tool_call:
+        if tool_call.get("name") == "deep_research":
+            args = tool_call.get("arguments", {})
 
-        try:
-            documents = await deep_research(
-                http_client=http_client,
-                unstructured_client=unstructured_client,
-                qdrant_client=qdrant_client,
-                models=models,
-                chat_id=chat_id,
-                user_id=user_id,
-                query=args.get("query"),
-                web_queries=args.get("web_queries"),
-                web_categories=args.get("web_categories"),
-                with_log=with_log,
-            )
+            try:
+                documents = await deep_research(
+                    http_client=http_client,
+                    unstructured_client=unstructured_client,
+                    qdrant_client=qdrant_client,
+                    models=models,
+                    chat_id=chat_id,
+                    user_id=user_id,
+                    query=args.get("query"),
+                    web_queries=args.get("web_queries"),
+                    web_categories=args.get("web_categories"),
+                    with_log=with_log,
+                )
 
-            context = format_rag_context(documents=documents)
-            logger.info(f"Provided context:\n{context}")
+                context = format_rag_context(documents=documents)
+                logger.info(f"Provided context:\n{context}")
 
-        except Exception as e:
-            logger.error(f"Deep research execution failed: {e}")
-            context = "Error during research. Please rely on internal knowledge but mention the technical issue."
+            except Exception as e:
+                logger.error(f"Deep research execution failed: {e}")
+                context = "Error during research. Please rely on internal knowledge but mention the technical issue."
+
+    if context:
+        system_instruction = {
+            "role": "system",
+            "content": (
+                "You are a friendly assistant. Use the text below as your knowledge base and 'memory' to respond to the user.\n"
+                "Instructions:\n"
+                "1. Respond naturally, as if you already know this information.\n"
+                "2. All your answers should be based solely on the context provided.\n"
+                "3. Do not invent facts or use external knowledge that is not mentioned in the text.\n"
+                f"Context:\n{context}\n"
+            ),
+        }
+        final_messages = [system_instruction] + messages
     else:
-        logger.info("Proceeding without deep research")
-        context = (
-            "No additional context found. Answer based on your internal knowledge."
-        )
-
-    system_instruction = {
-        "role": "system",
-        "content": (
-            "You are a friendly assistant. Use the text below as your knowledge base and 'memory' to respond to the user.\n"
-            "Instructions:\n"
-            "1. Respond naturally, as if you already know this information.\n"
-            "2. All your answers should be based solely on the context provided.\n"
-            "3. Do not invent facts or use external knowledge that is not mentioned in the text.\n"
-            f"Context:\n{context}\n"
-        ),
-    }
-
-    final_messages = [system_instruction] + messages
+        final_messages = messages
 
     async for chunk in generate(
         client=ollama_client,
