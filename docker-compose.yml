@@ -73,9 +73,6 @@ services:
     restart: unless-stopped
     expose:
       - "8000"
-    environment:
-      - UNSTRUCTURED_PARALLEL_MODE=true
-      - UNSTRUCTURED_NUM_WORKERS=2
   
   llm:
     build: ./services/llm
