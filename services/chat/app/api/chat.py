@@ -61,27 +61,54 @@ async def load_chat(
     return {"messages": chat.messages}
 
 
-@router.delete("/", status_code=204)
-async def delete_chats(
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-):
-    await delete_user_chats(db=db, user_id=user_id)
-
-
 @router.delete("/{chat_id}", status_code=204)
 async def delete_chat(
+    request: Request,
     chat_id: uuid.UUID,
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    client: AsyncClient = Depends(get_http_client),
 ):
+
     chat = await get_chat_by_id(db=db, id=chat_id)
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     if chat.owner_user_id != user_id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
+    user_cookies = request.cookies
+
+    try:
+        await client.delete(
+            f"{LLM_SERVICE_URL}/vectors/{chat_id}", cookies=user_cookies, timeout=10.0
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete vectors: {str(e)}"
+        )
+
     await delete_user_chat(db=db, chat=chat)
+
+
+@router.delete("/", status_code=204)
+async def delete_chats(
+    request: Request,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    client: AsyncClient = Depends(get_http_client),
+):
+    user_cookies = request.cookies
+
+    try:
+        await client.delete(
+            f"{LLM_SERVICE_URL}/vectors/", cookies=user_cookies, timeout=10.0
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete vectors: {str(e)}"
+        )
+
+    await delete_user_chats(db=db, user_id=user_id)
 
 
 def sse(data: dict):
@@ -232,6 +259,7 @@ async def create_chat_title(
 
     body = LLMTitleRequest(model=LLM_MODEL, temperature=0.3, query=query)
     payload_json = body.model_dump(mode="json")
+
     user_cookies = request.cookies
 
     response = await client.post(
