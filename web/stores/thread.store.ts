@@ -17,6 +17,7 @@ interface ThreadState {
   activeChatId: string | null;
   messages: ChatMessage[];
   isStreaming: boolean;
+  streamingMessage: string;
 
   clearThread: () => void;
   cancelStream: () => void;
@@ -29,10 +30,16 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   activeChatId: null,
   messages: [],
   isStreaming: false,
+  streamingMessage: "Thinking",
 
   clearThread: () => {
     get().cancelStream();
-    set({ activeChatId: null, messages: [], isStreaming: false });
+    set({
+      activeChatId: null,
+      messages: [],
+      isStreaming: false,
+      streamingMessage: "Thinking",
+    });
   },
 
   cancelStream: () => {
@@ -40,7 +47,7 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
       currentAbort.abort();
       currentAbort = null;
     }
-    set({ isStreaming: false });
+    set({ isStreaming: false, streamingMessage: "Thinking" });
   },
 
   loadMessages: async (chatId: string) => {
@@ -95,6 +102,11 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
         POST_SSE(`/chats/${chatId}/stream`, { query: text }, abort.signal);
 
       for await (const event of sseWithRefreshRetry(make)) {
+        if (event.type === "meta") {
+          set({ streamingMessage: event.message ?? "Thinking" });
+          continue;
+        }
+
         if (event.type === "stream") {
           const chunk = event.content ?? "";
           if (!chunk) continue;
@@ -119,7 +131,7 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
     } finally {
       if (currentAbort === abort) {
         currentAbort = null;
-        set({ isStreaming: false });
+        set({ isStreaming: false, streamingMessage: "Thinking" });
       }
     }
 

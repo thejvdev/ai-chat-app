@@ -29,12 +29,12 @@ export const useAuthStore = create<AuthState>((set) => {
     });
   };
 
-  const tryRefresh = async (): Promise<boolean> => {
+  const tryRefresh = async (): Promise<ApiUserDto | null> => {
     try {
-      const data = (await POST("/auth/refresh")) as { ok?: boolean } | null;
-      return Boolean(data?.ok);
+      const user = (await POST("/auth/refresh")) as ApiUserDto;
+      return user;
     } catch {
-      return false;
+      return null;
     }
   };
 
@@ -62,17 +62,17 @@ export const useAuthStore = create<AuthState>((set) => {
     },
 
     refresh: async () => {
-      const ok = await tryRefresh();
-      if (!ok) {
+      const apiUser = await tryRefresh();
+
+      if (!apiUser) {
         set({ user: null, status: "guest" });
         return;
       }
 
-      try {
-        await loadUser();
-      } catch {
-        set({ user: null, status: "guest" });
-      }
+      set({
+        user: { id: apiUser.id, email: apiUser.email, name: apiUser.full_name },
+        status: "authed",
+      });
     },
 
     logout: async () => {

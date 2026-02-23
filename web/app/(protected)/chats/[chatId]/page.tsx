@@ -17,6 +17,7 @@ export default function ThreadChat() {
   const messages = useThreadStore((s) => s.messages);
   const activeChatId = useThreadStore((s) => s.activeChatId);
   const isStreaming = useThreadStore((s) => s.isStreaming);
+  const streamingMessage = useThreadStore((s) => s.streamingMessage);
 
   const loadMessages = useThreadStore((s) => s.loadMessages);
   const sendMessage = useThreadStore((s) => s.sendMessage);
@@ -32,7 +33,7 @@ export default function ThreadChat() {
     async (query: string) => {
       await sendMessage(chatId, query);
     },
-    [chatId, sendMessage]
+    [chatId, sendMessage],
   );
 
   const handleCancel = useCallback(() => cancelStream(), [cancelStream]);
@@ -52,7 +53,7 @@ export default function ThreadChat() {
           {isStreaming && last?.role === "assistant" && !last?.content && (
             <div className="flex items-center gap-1">
               <Spinner />
-              Thinking
+              {streamingMessage}
             </div>
           )}
         </div>

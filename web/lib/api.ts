@@ -48,7 +48,7 @@ export async function GET<TResponse>(path: string): Promise<TResponse> {
 
 export async function POST<TResponse, TBody>(
   path: string,
-  body?: TBody
+  body?: TBody,
 ): Promise<TResponse> {
   const res = await fetch(toUrl(path), {
     method: "POST",
@@ -79,7 +79,7 @@ export async function DELETE<TResponse>(path: string): Promise<TResponse> {
 
 export async function PATCH<TResponse, TBody>(
   path: string,
-  body?: TBody
+  body?: TBody,
 ): Promise<TResponse> {
   const res = await fetch(toUrl(path), {
     method: "PATCH",

@@ -34,7 +34,9 @@ export function isApiError(err: unknown): err is ApiError {
 
 export type SseEvent = {
   type: string;
-  sub_type: string;
-  content: string;
-  done: boolean;
+  stage?: string;
+  message?: string;
+  sub_type?: string;
+  content?: string;
+  done?: boolean;
 };
