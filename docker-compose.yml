@@ -28,7 +28,7 @@ services:
     expose:
       - "8000"
     env_file:
-      - ./services/auth/.env
+      - ./services/auth/.env.example
     volumes:
       - ./services/auth:/app
       - /app/__pycache__
@@ -90,7 +90,7 @@ services:
     expose:
       - "8000"
     env_file:
-      - ./services/llm/.env
+      - ./services/llm/.env.example
     volumes:
       - ./services/llm:/app
       - /app/__pycache__
@@ -108,7 +108,7 @@ services:
     expose:
       - "8000"
     env_file:
-      - ./services/chat/.env
+      - ./services/chat/.env.example
     volumes:
       - ./services/chat:/app
       - /app/__pycache__
