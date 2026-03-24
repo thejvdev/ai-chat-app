@@ -63,4 +63,4 @@ This repository contains my **AI-powered web app**. It’s still under active de
 
 ## Author
 
-Created by [Denys Bondarchuk](https://github.com/thejvdev). Feel free to reach out or contribute to the project!
+Created by [Denys Bondarchuk](https://github.com/thejvdev). Feel free to reach out or contribute to the project.
